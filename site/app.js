@@ -36,6 +36,8 @@
     currentPortions: 4,
     originalPortions: 4,
     checkedIngredients: new Set(),
+    hasPushedRecipeHistory: false,
+    hasPushedIngredientsHistory: false,
 
     // Temporizador flotante
     timer: {
@@ -343,19 +345,39 @@
     }
   }
 
-  function openIngredientsModal() {
+  function openIngredientsModal(options = {}) {
+    const { pushHistory = true } = options;
     state.ingredientSearchQuery = '';
     if (dom.ingredientSearchInput) dom.ingredientSearchInput.value = '';
     dom.btnClearIngredientSearch?.classList.add('hidden');
     renderIngredientsModal();
     dom.ingredientsModal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
+
+    if (pushHistory && window.location.hash !== '#ingredients') {
+      state.hasPushedIngredientsHistory = true;
+      history.pushState({ modal: 'ingredients' }, '', '#ingredients');
+    }
     setTimeout(() => dom.ingredientSearchInput?.focus(), 80);
   }
 
-  function closeIngredientsModal() {
+  function closeIngredientsModal(options = {}) {
+    const { fromPopState = false } = options;
+    if (dom.ingredientsModal.classList.contains('hidden')) return;
+
     dom.ingredientsModal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
+
+    if (!fromPopState) {
+      if (window.location.hash === '#ingredients') {
+        if (state.hasPushedIngredientsHistory) {
+          state.hasPushedIngredientsHistory = false;
+          history.back();
+        } else {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    }
   }
 
   // =========================================================================
@@ -638,7 +660,7 @@
         data-id="${recipe.id}"
         class="recipe-card group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800/90 shadow-sm hover:shadow-xl hover:border-brand-500/40 dark:hover:border-brand-500/40 transition-all flex flex-col overflow-hidden cursor-pointer"
       >
-        <div class="relative w-full aspect-[4/3] bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <div class="relative w-full aspect-[16/10] sm:aspect-[4/3] bg-slate-100 dark:bg-slate-800 overflow-hidden">
           <img
             src="${imgSrc}"
             alt="${escapeHtml(recipe.title)}"
@@ -742,7 +764,8 @@
   // MODAL DE DETALLE DE RECETA
   // =========================================================================
 
-  async function openRecipeModal(recipeId) {
+  async function openRecipeModal(recipeId, options = {}) {
+    const { pushHistory = true } = options;
     let recipe = state.fullRecipesMap[recipeId];
 
     if (!recipe || !recipe.steps) {
@@ -762,6 +785,7 @@
 
     if (!recipe) {
       showToast('No se pudo abrir la receta seleccionada.', 'error');
+      closeRecipeModal({ fromPopState: true });
       return;
     }
 
@@ -770,7 +794,11 @@
     state.currentPortions = state.originalPortions;
     state.checkedIngredients.clear();
 
-    window.location.hash = `recipe/${recipe.id}`;
+    if (pushHistory && window.location.hash !== `#recipe/${recipe.id}`) {
+      state.hasPushedRecipeHistory = true;
+      history.pushState({ modal: 'recipe', recipeId: recipe.id }, '', `#recipe/${recipe.id}`);
+    }
+
     renderRecipeModalContent();
     dom.recipeModal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
@@ -789,12 +817,23 @@
     document.body.classList.add('overflow-hidden');
   }
 
-  function closeRecipeModal() {
+  function closeRecipeModal(options = {}) {
+    const { fromPopState = false } = options;
+    if (dom.recipeModal.classList.contains('hidden')) return;
+
     dom.recipeModal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
     state.currentRecipe = null;
-    if (window.location.hash.startsWith('#recipe/')) {
-      history.pushState(null, '', window.location.pathname + window.location.search);
+
+    if (!fromPopState) {
+      if (window.location.hash.startsWith('#recipe/')) {
+        if (state.hasPushedRecipeHistory) {
+          state.hasPushedRecipeHistory = false;
+          history.back();
+        } else {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
     }
   }
 
@@ -808,7 +847,7 @@
     const imgSrc = r.image || '';
 
     dom.recipeModalContent.innerHTML = `
-      <div class="relative w-full h-60 sm:h-72 bg-slate-900 overflow-hidden">
+      <div class="relative w-full h-52 sm:h-72 bg-slate-900 overflow-hidden flex-shrink-0">
         <img
           src="${imgSrc}"
           alt="${escapeHtml(r.title)}"
@@ -817,46 +856,49 @@
         >
         <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
 
+        <!-- Botón Volver / Cerrar: En móvil botón Volver a la izquierda, en desktop X a la derecha -->
         <button
           id="btnModalClose"
-          class="absolute top-4 right-4 p-2 rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md transition-colors"
-          title="Cerrar (Esc)"
+          class="absolute top-3 left-3 sm:left-auto sm:right-4 py-2 px-3 sm:p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md transition-all flex items-center gap-1.5 shadow-lg border border-white/20 z-10 active:scale-95"
+          title="Volver al recetario (Atrás / Esc)"
         >
-          <i data-lucide="x" class="w-5 h-5"></i>
+          <i data-lucide="arrow-left" class="w-4 h-4 sm:hidden"></i>
+          <span class="text-xs font-semibold sm:hidden">Volver</span>
+          <i data-lucide="x" class="w-5 h-5 hidden sm:block"></i>
         </button>
 
-        <div class="absolute bottom-5 left-5 right-5 text-white">
-          <div class="flex flex-wrap items-center gap-2 mb-2">
-            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-600/90 backdrop-blur-md">
+        <div class="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5 text-white">
+          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+            <span class="px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-brand-600/90 backdrop-blur-md">
               ${escapeHtml(r.categories[0] || 'Monsieur Cuisine')}
             </span>
-            <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-black/50 backdrop-blur-md">
+            <span class="px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-black/50 backdrop-blur-md">
               ${diffBadge}
             </span>
           </div>
 
-          <h2 class="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight drop-shadow-sm leading-snug">
+          <h2 class="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl text-white tracking-tight drop-shadow-sm leading-snug">
             ${escapeHtml(r.title)}
           </h2>
 
-          <div class="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-200">
+          <div class="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-slate-200">
             <div class="flex items-center gap-1.5">
-              <i data-lucide="clock" class="w-4 h-4 text-brand-400"></i>
+              <i data-lucide="clock" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-400"></i>
               <span>Total: <strong>${duration} min</strong> (Prep: ${r.prepTime || 0} min)</span>
             </div>
             <div class="flex items-center gap-1.5">
-              <i data-lucide="star" class="w-4 h-4 text-amber-400 fill-current"></i>
-              <span><strong>${r.rating > 0 ? r.rating.toFixed(1) : '-'}</strong> (${r.ratingCount || 0} valoraciones)</span>
+              <i data-lucide="star" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-current"></i>
+              <span><strong>${r.rating > 0 ? r.rating.toFixed(1) : '-'}</strong> (${r.ratingCount || 0} val.)</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="px-5 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between gap-2 flex-wrap">
-        <div class="flex items-center gap-2">
+      <div class="px-4 sm:px-5 py-2 sm:py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 flex items-center justify-between gap-2 overflow-x-auto flex-shrink-0 scrollbar-none">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <button
             id="btnModalFav"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors flex-shrink-0 active:scale-95 ${
               isFav
                 ? 'bg-rose-500 text-white'
                 : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-rose-500 border border-slate-200 dark:border-slate-700'
@@ -868,7 +910,7 @@
 
           <button
             id="btnModalShare"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors flex-shrink-0 active:scale-95"
           >
             <i data-lucide="share-2" class="w-4 h-4 text-brand-500"></i>
             <span>Compartir</span>
@@ -876,7 +918,7 @@
 
           <button
             id="btnModalPrint"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors"
+            class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors flex-shrink-0 active:scale-95"
           >
             <i data-lucide="printer" class="w-4 h-4 text-slate-500"></i>
             <span>Imprimir</span>
@@ -887,14 +929,14 @@
           href="${r.url || '#'}"
           target="_blank"
           rel="noopener"
-          class="text-xs text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium ml-auto"
+          class="text-xs text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-semibold ml-auto pl-2 flex-shrink-0"
         >
-          <span>Ficha oficial</span>
+          <span>Ficha</span>
           <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
         </a>
       </div>
 
-      <div class="p-5 sm:p-7 space-y-6 max-h-[calc(85vh-200px)] overflow-y-auto">
+      <div class="p-4 sm:p-6 md:p-7 space-y-5 sm:space-y-6 flex-1 overflow-y-auto overscroll-contain pb-12 sm:pb-6">
         
         ${r.description ? `
           <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed bg-orange-50/40 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-orange-100/70 dark:border-slate-800">
@@ -912,18 +954,18 @@
               </h3>
             </div>
 
-            <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-xl">
+            <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-2.5 sm:px-3 py-1 rounded-xl">
               <span class="text-xs font-medium text-slate-500 dark:text-slate-400 mr-1">Raciones:</span>
               <button
                 id="btnPortionMinus"
-                class="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-brand-500 hover:text-white"
+                class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center font-bold text-base text-slate-700 dark:text-slate-200 hover:bg-brand-500 hover:text-white active:scale-95 transition-all"
               >-</button>
-              <span id="portionDisplay" class="font-heading font-bold text-sm w-5 text-center text-brand-600 dark:text-brand-400">
+              <span id="portionDisplay" class="font-heading font-bold text-sm sm:text-base w-6 text-center text-brand-600 dark:text-brand-400">
                 ${state.currentPortions}
               </span>
               <button
                 id="btnPortionPlus"
-                class="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-brand-500 hover:text-white"
+                class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center font-bold text-base text-slate-700 dark:text-slate-200 hover:bg-brand-500 hover:text-white active:scale-95 transition-all"
               >+</button>
             </div>
           </div>
@@ -935,12 +977,12 @@
 
         <!-- PASOS CON AJUSTES DE MONSIEUR CUISINE -->
         <div>
-          <h3 class="font-heading font-bold text-lg text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+          <h3 class="font-heading font-bold text-base sm:text-lg text-slate-900 dark:text-white mb-3 flex items-center gap-2">
             <i data-lucide="list-ordered" class="w-5 h-5 text-brand-500"></i>
             <span>Instrucciones paso a paso</span>
           </h3>
 
-          <div class="space-y-3.5">
+          <div class="space-y-3 sm:space-y-3.5">
             ${renderStepsHtml(r.steps || [])}
           </div>
         </div>
@@ -960,13 +1002,13 @@
       </div>
     `;
 
-    document.getElementById('btnModalClose').addEventListener('click', closeRecipeModal);
+    document.getElementById('btnModalClose').addEventListener('click', () => closeRecipeModal());
     document.getElementById('btnModalFav').addEventListener('click', () => {
       toggleFavorite(r.id);
       renderRecipeModalContent();
     });
     document.getElementById('btnModalShare').addEventListener('click', shareCurrentRecipe);
-    document.getElementById('btnModalPrint').addEventListener('click', () => window.print());
+    document.getElementById('btnModalPrint')?.addEventListener('click', () => window.print());
 
     document.getElementById('btnPortionMinus').addEventListener('click', () => {
       if (state.currentPortions > 1) {
@@ -1012,24 +1054,24 @@
             return `
               <li
                 data-ing-key="${ingKey}"
-                class="ingredient-item py-1.5 px-1 flex items-center justify-between text-xs sm:text-sm cursor-pointer select-none rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                class="ingredient-item py-2 sm:py-1.5 px-2 flex items-center justify-between text-xs sm:text-sm cursor-pointer select-none rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
                   isChecked ? 'checked opacity-50' : ''
                 }"
               >
                 <div class="flex items-center gap-2.5">
-                  <div class="w-4 h-4 rounded border flex items-center justify-center ${
+                  <div class="w-5 h-5 rounded-md border flex items-center justify-center flex-shrink-0 text-xs ${
                     isChecked
                       ? 'bg-brand-500 border-brand-500 text-white'
                       : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
                   }">
                     ${isChecked ? '✓' : ''}
                   </div>
-                  <span class="text-slate-800 dark:text-slate-200">
+                  <span class="text-slate-800 dark:text-slate-200 leading-snug">
                     ${escapeHtml(item.name)}
                     ${item.note ? `<span class="text-[11px] text-slate-400 italic">(${escapeHtml(item.note)})</span>` : ''}
                   </span>
                 </div>
-                <div class="font-bold text-slate-900 dark:text-white font-mono text-xs whitespace-nowrap ml-4">
+                <div class="font-bold text-slate-900 dark:text-white font-mono text-xs whitespace-nowrap ml-3">
                   ${scaledQty ? `${scaledQty} ` : ''}${escapeHtml(item.unit || '')}
                 </div>
               </li>
@@ -1074,19 +1116,19 @@
       const hasSettings = s.settings && s.settings.length > 0;
 
       return `
-        <div class="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-2.5">
-          <div class="flex items-start gap-3">
-            <span class="flex-shrink-0 w-6 h-6 rounded-lg bg-brand-600 text-white font-heading font-bold text-xs flex items-center justify-center">
+        <div class="bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-4 space-y-2.5">
+          <div class="flex items-start gap-2.5 sm:gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-lg bg-brand-600 text-white font-heading font-bold text-xs flex items-center justify-center mt-0.5">
               ${idx + 1}
             </span>
-            <div class="flex-1 text-xs sm:text-sm text-slate-700 dark:text-slate-200 leading-relaxed pt-0.5 whitespace-pre-line">
+            <div class="flex-1 text-xs sm:text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-line">
               ${escapeHtml(s.text)}
             </div>
           </div>
 
           ${hasSettings ? `
-            <div class="ml-9 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-              <div class="flex flex-wrap items-center gap-1.5">
+            <div class="ml-8 sm:ml-9 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+              <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 ${s.settings.map(st => createRobotSettingBadge(st)).join('')}
               </div>
             </div>
@@ -1101,7 +1143,7 @@
 
     if (st.mode === 'scale' || st.weight > 0) {
       return `
-        <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+        <div class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
           <i data-lucide="scale" class="w-3.5 h-3.5 text-emerald-500"></i>
           <span>Báscula: ${st.weight} g</span>
         </div>
@@ -1110,8 +1152,8 @@
 
     if (st.mode_name && st.mode_name !== 'Manual') {
       badges.push(`
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-          <i data-lucide="cog" class="w-3 h-3 text-purple-500"></i>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+          <i data-lucide="cog" class="w-3.5 h-3.5 text-purple-500"></i>
           <span>${escapeHtml(st.mode_name)}</span>
         </span>
       `);
@@ -1121,7 +1163,7 @@
       badges.push(`
         <button
           data-time-seconds="${st.time_sec}"
-          class="step-timer-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 transition-colors"
+          class="step-timer-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 active:scale-95 transition-all"
           title="Iniciar temporizador"
         >
           <i data-lucide="timer" class="w-3.5 h-3.5 text-amber-500"></i>
@@ -1133,8 +1175,8 @@
 
     if (st.speed !== undefined && st.speed > 0) {
       badges.push(`
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-          <i data-lucide="zap" class="w-3 h-3 text-blue-500"></i>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-blue-500"></i>
           <span>Vel. ${st.speed}</span>
         </span>
       `);
@@ -1142,7 +1184,7 @@
 
     if (st.temperature > 0) {
       badges.push(`
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
           <i data-lucide="thermometer" class="w-3.5 h-3.5 text-rose-500"></i>
           <span>${st.temperature} °C</span>
         </span>
@@ -1151,7 +1193,7 @@
 
     if (st.reverse) {
       badges.push(`
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
           <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-indigo-500"></i>
           <span>Inverso</span>
         </span>
@@ -1471,7 +1513,38 @@
     dom.btnTimerPlayPause.addEventListener('click', toggleTimerPlayPause);
     dom.btnTimerStop.addEventListener('click', stopTimer);
 
-    window.addEventListener('hashchange', checkUrlHash);
+    window.addEventListener('popstate', handlePopState);
+  }
+
+  function handlePopState() {
+    const hash = window.location.hash;
+
+    // 1. Manejar modal de ingredientes: si estaba abierto y el hash ya no es #ingredients, cerrarlo
+    if (!dom.ingredientsModal.classList.contains('hidden') && hash !== '#ingredients') {
+      closeIngredientsModal({ fromPopState: true });
+    }
+
+    // 2. Manejar modal de receta: si estaba abierto y el usuario dio "Atrás", cerrarlo inmediatamente
+    if (!dom.recipeModal.classList.contains('hidden')) {
+      if (!hash.startsWith('#recipe/')) {
+        closeRecipeModal({ fromPopState: true });
+      } else {
+        const id = parseInt(hash.replace('#recipe/', ''), 10);
+        if (!isNaN(id) && (!state.currentRecipe || state.currentRecipe.id !== id)) {
+          openRecipeModal(id, { pushHistory: false });
+        }
+      }
+    } else {
+      // Si el modal estaba cerrado y el usuario navegó a una receta mediante historial (ej. botón adelante)
+      if (hash.startsWith('#recipe/')) {
+        const id = parseInt(hash.replace('#recipe/', ''), 10);
+        if (!isNaN(id)) {
+          openRecipeModal(id, { pushHistory: false });
+        }
+      } else if (hash === '#ingredients') {
+        openIngredientsModal({ pushHistory: false });
+      }
+    }
   }
 
   function clearSearch() {
@@ -1513,9 +1586,11 @@
     const hash = window.location.hash;
     if (hash.startsWith('#recipe/')) {
       const id = parseInt(hash.replace('#recipe/', ''), 10);
-      if (!isNaN(id) && (!state.currentRecipe || state.currentRecipe.id !== id)) {
-        openRecipeModal(id);
+      if (!isNaN(id)) {
+        openRecipeModal(id, { pushHistory: false });
       }
+    } else if (hash === '#ingredients') {
+      openIngredientsModal({ pushHistory: false });
     }
   }
 
