@@ -1,21 +1,13 @@
 name: Extraer Recetas y Desplegar en GitHub Pages
 
 on:
-  # Ejecución automática semanal (domingos a las 04:00 UTC)
   schedule:
     - cron: '0 4 * * 0'
 
-  # Ejecución tras cambios en ramas principales
   push:
     branches:
       - main
-    paths:
-      - 'site/**'
-      - 'scripts/**'
-      - 'requirements.txt'
-      - '.github/workflows/**'
 
-  # Ejecución manual desde la pestaña Actions en GitHub
   workflow_dispatch:
     inputs:
       force_refresh:
@@ -23,7 +15,7 @@ on:
         type: boolean
         default: false
       lang:
-        description: 'Código de idioma (es-ES, fr-FR, de-DE, etc.)'
+        description: 'Código de idioma (es-ES, en-US, etc.)'
         type: string
         default: 'es-ES'
       device:
@@ -35,7 +27,6 @@ on:
           - MC3.0
         default: all
 
-# Permisos para GitHub Pages y para persistir datos en el repositorio
 permissions:
   contents: write
   pages: write
@@ -46,12 +37,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  extract-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Clonar repositorio
         uses: actions/checkout@v4
@@ -69,13 +56,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: ⚡ Extraer / Actualizar recetas (Modo incremental y resiliente)
+      - name: ⚡ Extraer / Actualizar recetas
         run: |
           FORCE_FLAG=""
           if [ "${{ github.event.inputs.force_refresh }}" = "true" ]; then
             FORCE_FLAG="--force"
           fi
-          
           LANG_ARG="${{ github.event.inputs.lang || 'es-ES' }}"
           DEVICE_ARG="${{ github.event.inputs.device || 'all' }}"
           
@@ -85,15 +71,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Verificar si hay cambios en la carpeta data/
           if [ -n "$(git status --porcelain data/)" ]; then
-            echo "Nuevos datos o actualizaciones detectadas. Creando commit de respaldo..."
+            echo "Guardando recetas actualizadas..."
             git add data/
             git commit -m "chore(data): actualizar catálogo de recetas de Monsieur Cuisine [skip ci]"
             git push
           else
-            echo "No hay recetas nuevas ni modificadas. Repositorio al día."
+            echo "Catálogo al día."
           fi
 
       - name: 🌐 Configurar GitHub Pages
@@ -104,6 +88,13 @@ jobs:
         with:
           path: './site'
 
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
       - name: 🚀 Desplegar en GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
