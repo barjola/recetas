@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recetario Monsieur Cuisine | Connect & Smart</title>
+  <meta name="description" content="Explora más de 2.000 recetas oficiales para Monsieur Cuisine Connect y Smart con pasos guiados, temperaturas, velocidades y escalado de raciones.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            heading: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#fff7ed',
+              100: '#ffedd5',
+              200: '#fed7aa',
+              300: '#fdba74',
+              400: '#fb923c',
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c',
+              800: '#9a3412',
+              900: '#7c2d12',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+  <!-- NAVBAR -->
+  <nav class="sticky top-0 z-40 w-full glass-nav border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      
+      <!-- Logo -->
+      <a href="#" class="flex items-center gap-3 group flex-shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform">
+          <i data-lucide="chef-hat" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <span class="font-heading font-bold text-lg tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+            Monsieur Cuisine <span class="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-400 font-semibold">Recetas</span>
+          </span>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block -mt-1">Connect & Smart Edition</p>
+        </div>
+      </a>
+
+      <!-- Quick Search Bar (Desktop) -->
+      <div class="hidden md:flex flex-1 max-w-md mx-4 relative">
+        <div class="relative w-full">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input
+            type="text"
+            id="navSearchInput"
+            placeholder="Buscar por receta, ingrediente o etiqueta... (Presiona '/' para buscar)"
+            class="w-full pl-10 pr-9 py-2 rounded-full text-sm bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-slate-100 placeholder-slate-400"
+          >
+          <button id="navClearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-2">
+        <!-- Surprise me button -->
+        <button
+          id="btnRandomRecipe"
+          title="¿Qué cocino hoy? Receta aleatoria"
+          class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+        >
+          <i data-lucide="dices" class="w-4 h-4 text-brand-500"></i>
+          <span>Sorpréndeme</span>
+        </button>
+
+        <!-- Favorites toggle button -->
+        <button
+          id="btnToggleFavorites"
+          title="Ver recetas favoritas"
+          class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors relative"
+        >
+          <i data-lucide="heart" class="w-4 h-4 text-rose-500"></i>
+          <span class="hidden sm:inline">Favoritas</span>
+          <span id="favCounterBadge" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white">0</span>
+        </button>
+
+        <!-- Dark mode toggle -->
+        <button
+          id="btnToggleTheme"
+          title="Cambiar tema claro / oscuro"
+          class="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+          <i data-lucide="sun" class="w-5 h-5 block dark:hidden"></i>
+        </button>
+      </div>
+
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="relative overflow-hidden bg-gradient-to-b from-orange-50/70 via-white to-slate-50 dark:from-slate-900/60 dark:via-slate-950 dark:to-slate-950 border-b border-slate-200/60 dark:border-slate-800/60 py-10 sm:py-14">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+      
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-brand-100 text-brand-800 dark:bg-brand-950/80 dark:text-brand-300 border border-brand-200 dark:border-brand-800 mb-4 animate-fade-in">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand-500"></i>
+        <span>Recetario Oficial Monsieur Cuisine Connect & Smart</span>
+      </div>
+
+      <h1 class="text-3xl sm:text-5xl font-heading font-extrabold tracking-tight text-slate-900 dark:text-white max-w-3xl mx-auto leading-tight">
+        Todo lo que puedes cocinar con tu <span class="bg-gradient-to-r from-brand-600 to-amber-500 bg-clip-text text-transparent">Monsieur Cuisine</span>
+      </h1>
+
+      <p class="mt-3 sm:mt-4 text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto font-normal">
+        Consulta ingredientes ajustables por raciones, tiempos exactos, temperaturas, velocidades y pasos guiados adaptados a tu robot.
+      </p>
+
+      <!-- Stats Counters -->
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+        <div class="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <i data-lucide="book-open" class="w-4 h-4 text-brand-500"></i>
+          <span id="statTotalRecipes" class="font-bold text-slate-800 dark:text-slate-200">2.015</span> recetas
+        </div>
+        <div class="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <i data-lucide="cpu" class="w-4 h-4 text-blue-500"></i>
+          <span>MC Connect & Smart</span>
+        </div>
+        <div class="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <i data-lucide="scale" class="w-4 h-4 text-emerald-500"></i>
+          <span>Raciones dinámicas</span>
+        </div>
+        <div class="flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <i data-lucide="timer" class="w-4 h-4 text-amber-500"></i>
+          <span>Temporizador guiado</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- SEARCH & FILTERS SECTION -->
+    <section id="filtersSection" class="space-y-4 mb-8">
+      
+      <!-- Mobile Search Input -->
+      <div class="relative md:hidden">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+        <input
+          type="text"
+          id="mobileSearchInput"
+          placeholder="Buscar recetas o ingredientes..."
+          class="w-full pl-10 pr-9 py-2.5 rounded-xl text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm text-slate-800 dark:text-slate-100 placeholder-slate-400"
+        >
+        <button id="mobileClearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Categories Pills Bar (Horizontal Scrollable) -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 pt-1 scrollbar-none no-scrollbar" id="categoriesContainer">
+        <!-- Generado dinámicamente -->
+      </div>
+
+      <!-- Filter Controls Bar -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          
+          <!-- Dificultad -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dificultad</label>
+            <select id="filterDifficulty" class="w-full text-xs py-2 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="all">Todas</option>
+              <option value="1">🟢 Fácil</option>
+              <option value="2">🟡 Media</option>
+              <option value="3">🔴 Difícil</option>
+            </select>
+          </div>
+
+          <!-- Tiempo Máximo -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Tiempo Máximo</label>
+            <select id="filterTime" class="w-full text-xs py-2 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="all">Cualquiera</option>
+              <option value="30">⚡ Rápidas (&le; 30 min)</option>
+              <option value="60">⏱️ Hasta 60 min</option>
+              <option value="90">🍲 Hasta 90 min</option>
+              <option value="120">🥘 Más de 90 min</option>
+            </select>
+          </div>
+
+          <!-- Dispositivo -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dispositivo</label>
+            <select id="filterDevice" class="w-full text-xs py-2 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="all">Todos los robots</option>
+              <option value="MC2.0">Monsieur Cuisine Connect (MC2.0)</option>
+              <option value="MC3.0">Monsieur Cuisine Smart (MC3.0)</option>
+            </select>
+          </div>
+
+          <!-- Dieta / Tipo -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dieta Especial</label>
+            <select id="filterDiet" class="w-full text-xs py-2 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="all">Todas</option>
+              <option value="Vegetariano">🥗 Vegetariano</option>
+              <option value="Vegano">🌱 Vegano</option>
+            </select>
+          </div>
+
+          <!-- Ordenar Por -->
+          <div class="col-span-2 sm:col-span-2 md:col-span-4 lg:col-span-1">
+            <label class="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Ordenar por</label>
+            <select id="filterSort" class="w-full text-xs py-2 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="rating">⭐ Mejor valoradas</option>
+              <option value="popularity">🔥 Más populares</option>
+              <option value="fastest">⚡ Más rápidas</option>
+              <option value="title_asc">🔤 Nombre (A-Z)</option>
+              <option value="title_desc">🔤 Nombre (Z-A)</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- Active filter bar + reset -->
+        <div id="activeFiltersRow" class="hidden flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <div id="activeFiltersBadges" class="flex flex-wrap items-center gap-1.5"></div>
+          <button id="btnResetFilters" class="text-brand-600 dark:text-brand-400 hover:underline font-semibold ml-auto flex items-center gap-1">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Limpiar filtros</span>
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- RESULTS HEADER -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white flex items-center gap-2">
+          <span id="resultsTitle">Todas las Recetas</span>
+          <span id="resultsCountBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold">0</span>
+        </h2>
+        <p id="resultsSubtitle" class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">Explora el catálogo o filtra según lo que tengas en la nevera.</p>
+      </div>
+
+      <div class="flex items-center gap-1 text-slate-500">
+        <!-- View buttons if needed -->
+      </div>
+    </div>
+
+    <!-- RECIPES GRID -->
+    <div id="recipesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <!-- Recipe cards injected here via JS -->
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div id="emptyState" class="hidden py-16 text-center">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-orange-100 dark:bg-orange-950/60 flex items-center justify-center text-brand-600 dark:text-brand-400">
+        <i data-lucide="search-x" class="w-8 h-8"></i>
+      </div>
+      <h3 class="font-heading font-bold text-lg text-slate-900 dark:text-white mb-1">No se encontraron recetas</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-4">Intenta cambiar las palabras de búsqueda o desactivar algunos filtros.</p>
+      <button id="btnEmptyReset" class="px-4 py-2 text-xs font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white transition-colors">
+        Restablecer todos los filtros
+      </button>
+    </div>
+
+    <!-- LOAD MORE / PAGINATION TRIGGER -->
+    <div id="loadMoreSection" class="mt-12 text-center">
+      <button id="btnLoadMore" class="px-6 py-3 rounded-full text-sm font-semibold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 text-slate-800 dark:text-slate-200 shadow-sm hover:shadow transition-all inline-flex items-center gap-2">
+        <i data-lucide="chevron-down" class="w-4 h-4 text-brand-500"></i>
+        <span>Cargar más recetas</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8 text-xs text-slate-500 dark:text-slate-400 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <p class="font-medium text-slate-700 dark:text-slate-300">Recetario Monsieur Cuisine &bull; Generado automáticamente</p>
+        <p class="mt-1 text-[11px]">Datos extraídos de la API oficial de Monsieur Cuisine. Inspirado en el proyecto <a href="https://github.com/Wuki60/MrCuisineVibeConnect" target="_blank" rel="noopener" class="text-brand-600 dark:text-brand-400 hover:underline">MrCuisineVibeConnect</a>.</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="https://github.com/barjola/recetas" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+          <i data-lucide="github" class="w-4 h-4"></i>
+          <span>Repositorio GitHub</span>
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- RECIPE DETAIL MODAL -->
+  <div id="recipeModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4">
+    <div id="recipeModalContent" class="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-6 transform transition-all">
+      <!-- Inyectado dinámicamente con plantilla completa de receta -->
+    </div>
+  </div>
+
+  <!-- FLOATING COOKING TIMER -->
+  <div id="floatingTimer" class="fixed bottom-6 right-6 z-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-3 flex items-center gap-3 hidden animate-slide-up">
+    <div class="relative w-12 h-12 flex items-center justify-center">
+      <svg class="timer-svg w-12 h-12">
+        <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3" fill="none" class="text-slate-200 dark:text-slate-800" />
+        <circle id="timerProgressCircle" cx="24" cy="24" r="20" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="125.6" stroke-dashoffset="0" class="text-brand-500" />
+      </svg>
+      <i data-lucide="timer" class="w-5 h-5 text-brand-600 dark:text-brand-400 absolute"></i>
+    </div>
+    <div>
+      <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Temporizador</div>
+      <div id="timerDisplay" class="font-heading font-extrabold text-lg text-slate-900 dark:text-white">00:00</div>
+    </div>
+    <div class="flex items-center gap-1 ml-2">
+      <button id="btnTimerPlayPause" class="p-2 rounded-lg bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 hover:bg-brand-100 transition-colors" title="Pausar / Reanudar">
+        <i data-lucide="pause" id="timerIconPause" class="w-4 h-4"></i>
+        <i data-lucide="play" id="timerIconPlay" class="w-4 h-4 hidden"></i>
+      </button>
+      <button id="btnTimerStop" class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" title="Cerrar temporizador">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- AUDIO ALERT FOR TIMER -->
+  <audio id="timerAudio" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- APPLICATION LOGIC -->
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+name: Extraer Recetas y Desplegar en GitHub Pages
+
+on:
+  # Ejecución automática semanal (domingos a las 04:00 UTC)
+  schedule:
+    - cron: '0 4 * * 0'
+
+  # Ejecución tras cambios en ramas principales
+  push:
+    branches:
+      - main
+    paths:
+      - 'site/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+
+  # Ejecución manual desde la pestaña Actions en GitHub
+  workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Forzar re-descarga completa (ignorar caché)'
+        type: boolean
+        default: false
+      lang:
+        description: 'Código de idioma (es-ES, fr-FR, de-DE, etc.)'
+        type: string
+        default: 'es-ES'
+      device:
+        description: 'Filtro de dispositivo (all, MC2.0, MC3.0)'
+        type: choice
+        options:
+          - all
+          - MC2.0
+          - MC3.0
+        default: all
+
+# Permisos para GitHub Pages y para persistir datos en el repositorio
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  extract-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐍 Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 📦 Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install aiohttp
+
+      - name: ⚡ Extraer / Actualizar recetas (Modo incremental y resiliente)
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ github.event.inputs.force_refresh }}" = "true" ]; then
+            FORCE_FLAG="--force"
+          fi
+          
+          LANG_ARG="${{ github.event.inputs.lang || 'es-ES' }}"
+          DEVICE_ARG="${{ github.event.inputs.device || 'all' }}"
+          
+          python scripts/extract_recipes.py --lang "$LANG_ARG" --device "$DEVICE_ARG" $FORCE_FLAG --concurrency 25
+
+      - name: 💾 Guardar recetas actualizadas en el repositorio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Verificar si hay cambios en la carpeta data/
+          if [ -n "$(git status --porcelain data/)" ]; then
+            echo "Nuevos datos o actualizaciones detectadas. Creando commit de respaldo..."
+            git add data/
+            git commit -m "chore(data): actualizar catálogo de recetas de Monsieur Cuisine [skip ci]"
+            git push
+          else
+            echo "No hay recetas nuevas ni modificadas. Repositorio al día."
+          fi
+
+      - name: 🌐 Configurar GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: 📦 Subir artefacto del sitio web
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './site'
+
+      - name: 🚀 Desplegar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
