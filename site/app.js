@@ -28,7 +28,7 @@
     searchQuery: '',
     difficulty: 'all',
     maxTime: 'all',
-    device: 'all',
+    device: 'MC2.0',           // Monsieur Cuisine Connect por defecto (884 recetas en español)
     sortBy: 'rating',
 
     // Modal de Receta
@@ -543,8 +543,15 @@
     if (state.maxTime !== 'all') {
       badges.push({ label: `≤ ${state.maxTime} min`, onRemove: () => { state.maxTime = 'all'; dom.filterTime.value = 'all'; applyFiltersAndSort(); } });
     }
-    if (state.device !== 'all') {
-      badges.push({ label: state.device === 'MC2.0' ? 'MC Connect' : 'MC Smart', onRemove: () => { state.device = 'all'; dom.filterDevice.value = 'all'; applyFiltersAndSort(); } });
+    if (state.device !== 'MC2.0') {
+      badges.push({
+        label: state.device === 'all' ? 'Todos los robots' : 'MC Smart',
+        onRemove: () => {
+          state.device = 'MC2.0';
+          dom.filterDevice.value = 'MC2.0';
+          applyFiltersAndSort();
+        }
+      });
     }
 
     if (badges.length > 0) {
@@ -1479,7 +1486,7 @@
     state.activeCategory = 'all';
     state.difficulty = 'all';
     state.maxTime = 'all';
-    state.device = 'all';
+    state.device = 'MC2.0';
     state.sortBy = 'rating';
     state.showOnlyFavorites = false;
     state.selectedIngredients.clear();
@@ -1487,7 +1494,7 @@
     clearSearch();
     dom.filterDifficulty.value = 'all';
     dom.filterTime.value = 'all';
-    dom.filterDevice.value = 'all';
+    dom.filterDevice.value = 'MC2.0';
     dom.filterSort.value = 'rating';
     dom.btnToggleFavorites.classList.remove('bg-rose-100', 'text-rose-700', 'dark:bg-rose-950', 'dark:text-rose-300');
 
