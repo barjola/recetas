@@ -30,6 +30,7 @@
     maxTime: 'all',
     device: 'MC2.0',           // Monsieur Cuisine Connect por defecto (884 recetas en español)
     sortBy: 'rating',
+    onlyPaleo: false,          // Filtro Dieta Paleo
 
     // Modal de Receta
     currentRecipe: null,
@@ -63,6 +64,8 @@
     filterTime: document.getElementById('filterTime'),
     filterDevice: document.getElementById('filterDevice'),
     filterSort: document.getElementById('filterSort'),
+    checkPaleo: document.getElementById('checkPaleo'),
+    paleoCountBadge: document.getElementById('paleoCountBadge'),
     categoriesContainer: document.getElementById('categoriesContainer'),
     activeFiltersRow: document.getElementById('activeFiltersRow'),
     activeFiltersBadges: document.getElementById('activeFiltersBadges'),
@@ -440,6 +443,59 @@
   }
 
   // =========================================================================
+  // REGLAS Y DETECCIÓN DIETA PALEO
+  // =========================================================================
+
+  const NON_PALEO_KEYWORDS = [
+    'harina', 'trigo', 'arroz', 'pasta', 'espagueti', 'macarron', 'fideo', 'pan', 'pan rallado',
+    'avena', 'maiz', 'maicena', 'cebada', 'centeno', 'espelta', 'cuscus', 'semola', 'quinoa',
+    'hojaldre', 'masa brisa', 'masa quebrada', 'galleta', 'bizcocho', 'tostada',
+    'flour', 'wheat', 'rice', 'pasta', 'spaghetti', 'noodle', 'bread', 'breadcrumb',
+    'oat', 'corn', 'cornstarch', 'barley', 'rye', 'spelt', 'couscous', 'semolina',
+    'lenteja', 'garbanzo', 'alubia', 'soja', 'tofu', 'edamame', 'cacahuete', 'mani',
+    'lentil', 'chickpea', 'bean', 'soy', 'peanut',
+    'queso', 'nata', 'mantequilla', 'yogur', 'parmesano', 'mozzarella', 'mascarpone',
+    'ricotta', 'cuajada', 'crema de leche', 'crema agria',
+    'cheese', 'cream', 'butter', 'yogurt', 'sour cream',
+    'azucar', 'caramelo', 'fondant', 'edulcorante', 'sacarina',
+    'sugar', 'caramel', 'sweetener',
+    'avecrem', 'pastilla de caldo', 'detergente', 'bouillon', 'stock cube'
+  ];
+
+  function isPaleoRecipeFallback(r) {
+    if (r.is_paleo !== undefined) return Boolean(r.is_paleo);
+    const title = (r.title || '').toLowerCase();
+    if (title.startsWith('*') || title.includes('limpieza') || title.includes('cleaning')) return false;
+    const cats = (r.categories || []).map(c => c.toLowerCase());
+    const nonPaleoCats = [
+      'panes y masas', 'pastas', 'postres y dulces', 'repostería', 'tartas y pasteles',
+      'baking', 'desserts', 'pasta dishes'
+    ];
+    if (cats.some(c => nonPaleoCats.includes(c))) return false;
+    const ings = (r.ingredients || []).map(i => i.toLowerCase());
+    if (ings.length === 0) return false;
+    for (const ing of ings) {
+      if (ing.includes('judia verde') || ing.includes('judias verdes') || ing.includes('green bean')) continue;
+      if (ing.includes('leche de coco') || ing.includes('leche de almendra') || ing.includes('coconut milk') || ing.includes('almond milk')) continue;
+      if (ing.includes('harina de almendra') || ing.includes('harina de coco') || ing.includes('almond flour') || ing.includes('coconut flour')) continue;
+      if (ing.includes('harina') || ing.includes('flour') || ing.includes('leche') || ing.includes('milk') || ing.includes('judia')) return false;
+      if (NON_PALEO_KEYWORDS.some(kw => ing.includes(kw))) return false;
+    }
+    return true;
+  }
+
+  function updatePaleoCountBadge() {
+    if (!dom.paleoCountBadge) return;
+    const dev = state.device;
+    let count = 0;
+    for (const r of state.allRecipes) {
+      if (dev !== 'all' && !(r.devices || []).includes(dev)) continue;
+      if (isPaleoRecipeFallback(r)) count++;
+    }
+    dom.paleoCountBadge.textContent = `${count} recetas`;
+  }
+
+  // =========================================================================
   // MOTOR DE BÚSQUEDA Y FILTRADO
   // =========================================================================
 
@@ -455,6 +511,11 @@
     state.filteredRecipes = state.allRecipes.filter(r => {
       if (onlyFavs && !state.favorites.has(r.id)) {
         return false;
+      }
+
+      // Filtro Dieta Paleo
+      if (state.onlyPaleo) {
+        if (!isPaleoRecipeFallback(r)) return false;
       }
 
       // Filtro por ingredientes seleccionados
@@ -505,6 +566,7 @@
 
     state.displayedCount = state.batchSize;
     updateSelectedIngredientsBadge();
+    updatePaleoCountBadge();
     renderActiveFilterBadges();
     renderGrid();
     updateResultsHeader();
@@ -547,6 +609,17 @@
           }
         });
       }
+    }
+
+    if (state.onlyPaleo) {
+      badges.push({
+        label: '🥩 Dieta Paleo',
+        onRemove: () => {
+          state.onlyPaleo = false;
+          if (dom.checkPaleo) dom.checkPaleo.checked = false;
+          applyFiltersAndSort();
+        }
+      });
     }
 
     if (state.showOnlyFavorites) {
@@ -603,7 +676,11 @@
     const total = state.filteredRecipes.length;
     dom.resultsCountBadge.textContent = total.toLocaleString('es-ES');
 
-    if (state.selectedIngredients.size > 0) {
+    if (state.onlyPaleo) {
+      dom.resultsTitle.textContent = state.searchQuery
+        ? `Recetas Paleo para "${state.searchQuery}"`
+        : 'Recetas Dieta Paleo';
+    } else if (state.selectedIngredients.size > 0) {
       dom.resultsTitle.textContent = `Recetas con tus ingredientes`;
     } else if (state.showOnlyFavorites) {
       dom.resultsTitle.textContent = 'Mis Recetas Favoritas';
@@ -685,6 +762,12 @@
           <span class="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/90 dark:bg-slate-900/90 backdrop-blur-md text-slate-800 dark:text-slate-200 shadow-sm">
             ${escapeHtml(category)}
           </span>
+
+          ${recipe.is_paleo ? `
+            <span class="absolute bottom-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600/95 text-white backdrop-blur-md shadow-sm">
+              🥩 Paleo
+            </span>
+          ` : ''}
         </div>
 
         <div class="p-4 flex-1 flex flex-col justify-between">
@@ -875,6 +958,11 @@
             <span class="px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-black/50 backdrop-blur-md">
               ${diffBadge}
             </span>
+            ${r.is_paleo ? `
+              <span class="px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold bg-emerald-600/90 backdrop-blur-md text-white">
+                🥩 Dieta Paleo
+              </span>
+            ` : ''}
           </div>
 
           <h2 class="font-heading font-extrabold text-xl sm:text-2xl md:text-3xl text-white tracking-tight drop-shadow-sm leading-snug">
@@ -1487,6 +1575,11 @@
       applyFiltersAndSort();
     });
 
+    dom.checkPaleo?.addEventListener('change', (e) => {
+      state.onlyPaleo = e.target.checked;
+      applyFiltersAndSort();
+    });
+
     dom.btnResetFilters.addEventListener('click', resetAllFilters);
     dom.btnEmptyReset.addEventListener('click', resetAllFilters);
 
@@ -1562,9 +1655,11 @@
     state.device = 'MC2.0';
     state.sortBy = 'rating';
     state.showOnlyFavorites = false;
+    state.onlyPaleo = false;
     state.selectedIngredients.clear();
 
     clearSearch();
+    if (dom.checkPaleo) dom.checkPaleo.checked = false;
     dom.filterDifficulty.value = 'all';
     dom.filterTime.value = 'all';
     dom.filterDevice.value = 'MC2.0';

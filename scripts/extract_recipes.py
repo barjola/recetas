@@ -88,6 +88,53 @@ def normalize_ingredient_amount(amount: Any) -> str:
     return s
 
 
+NON_PALEO_KEYWORDS = [
+    'harina', 'trigo', 'arroz', 'pasta', 'espagueti', 'macarron', 'fideo', 'pan', 'pan rallado',
+    'avena', 'maiz', 'maicena', 'cebada', 'centeno', 'espelta', 'cuscus', 'semola', 'quinoa',
+    'hojaldre', 'masa brisa', 'masa quebrada', 'galleta', 'bizcocho', 'tostada',
+    'flour', 'wheat', 'rice', 'pasta', 'spaghetti', 'noodle', 'bread', 'breadcrumb',
+    'oat', 'corn', 'cornstarch', 'barley', 'rye', 'spelt', 'couscous', 'semolina',
+    'lenteja', 'garbanzo', 'alubia', 'soja', 'tofu', 'edamame', 'cacahuete', 'mani',
+    'lentil', 'chickpea', 'bean', 'soy', 'peanut',
+    'queso', 'nata', 'mantequilla', 'yogur', 'parmesano', 'mozzarella', 'mascarpone',
+    'ricotta', 'cuajada', 'crema de leche', 'crema agria',
+    'cheese', 'cream', 'butter', 'yogurt', 'sour cream',
+    'azucar', 'caramelo', 'fondant', 'edulcorante', 'sacarina',
+    'sugar', 'caramel', 'sweetener',
+    'avecrem', 'pastilla de caldo', 'detergente', 'bouillon', 'stock cube'
+]
+
+
+def is_paleo_recipe(title: str, categories: List[str], flat_ingredients: List[str]) -> bool:
+    """Determina si una receta cumple las pautas de la Dieta Paleolítica."""
+    t = (title or "").lower()
+    if t.startswith("*") or "limpieza" in t or "cleaning" in t:
+        return False
+    cats = [c.lower() for c in categories]
+    non_paleo_cats = [
+        'panes y masas', 'pastas', 'postres y dulces', 'repostería', 'tartas y pasteles',
+        'baking', 'desserts', 'pasta dishes'
+    ]
+    if any(c in non_paleo_cats for c in cats):
+        return False
+    if not flat_ingredients:
+        return False
+    for ing in flat_ingredients:
+        i = ing.lower()
+        if any(k in i for k in ['judia verde', 'judias verdes', 'green bean', 'string bean']):
+            continue
+        if any(k in i for k in ['leche de coco', 'leche de almendra', 'coconut milk', 'almond milk']):
+            continue
+        if any(k in i for k in ['harina de almendra', 'harina de coco', 'almond flour', 'coconut flour']):
+            continue
+        if 'harina' in i or 'flour' in i or 'leche' in i or 'milk' in i or 'judia' in i:
+            return False
+        for kw in NON_PALEO_KEYWORDS:
+            if kw in i:
+                return False
+    return True
+
+
 def parse_recipe_detail(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Parsea el objeto completo retornado por /api/v2/recipes/{id}."""
     rec = raw.get("data", {}).get("recipe")
@@ -222,6 +269,9 @@ def parse_recipe_detail(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         or ""
     )
 
+    flat_ingredients = [it["name"] for g in ingredient_groups for it in g.get("items", []) if it.get("name")]
+    is_paleo = is_paleo_recipe(title, categories, flat_ingredients)
+
     return {
         "id": recipe_id,
         "title": title,
@@ -242,6 +292,7 @@ def parse_recipe_detail(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "ingredients": ingredient_groups,
         "steps": steps,
         "nutrients": nutrients,
+        "is_paleo": is_paleo,
         "lastUpdated": rec.get("lastUpdated") or "",
         "url": rec.get("url") or f"https://www.monsieur-cuisine.com/recipe/{recipe_id}",
     }
@@ -480,6 +531,8 @@ async def main_async(args):
             "tags": r["tags"],
             "devices": r["devices"],
             "image": r["image"],
+            "is_paleo": r.get("is_paleo", False),
+            "ingredients": [it["name"] for g in r.get("ingredients", []) for it in g.get("items", []) if it.get("name")] if r.get("ingredients") and isinstance(r["ingredients"][0], dict) else r.get("ingredients", []),
         }
         for r in final_recipes
     ]
